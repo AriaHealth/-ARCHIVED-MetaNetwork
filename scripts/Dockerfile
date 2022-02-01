@@ -1,5 +1,11 @@
 FROM ubuntu:20.04 as builder
 
+ENV TZONE=Asia/Nicosia
+ENV LANG=C.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL=C.UTF-8
+RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
+
 RUN mkdir -p /app
 WORKDIR /app
 
@@ -29,7 +35,15 @@ RUN cargo build --release
 # =============
 
 FROM phusion/baseimage:bionic-1.0.0
+
+LABEL name="SubstrateHealthNetwork"
 LABEL maintainer="tirtad@dcentric.health"
+
+ENV TZONE=Asia/Nicosia
+ENV LANG=C.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL=C.UTF-8
+RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
