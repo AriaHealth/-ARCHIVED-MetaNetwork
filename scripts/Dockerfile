@@ -1,44 +1,37 @@
-FROM rust as builder
-WORKDIR app
-
-RUN rustup default nightly-2021-06-17 && \
-	rustup target add wasm32-unknown-unknown --toolchain nightly-2021-06-17
-
-RUN apt-get update && \
-	apt-get dist-upgrade -y -o Dpkg::Options::="--force-confold" && \
-	apt-get install -y cmake pkg-config libssl-dev git clang libclang-dev
-
-ARG GIT_COMMIT=
-ENV GIT_COMMIT=$GIT_COMMIT
-ARG BUILD_ARGS
-
-COPY . .
-
-RUN cargo build --release $BUILD_ARGS
-
-# =============
-
-FROM phusion/baseimage:bionic-1.0.0
+FROM ubuntu:20.04
 LABEL name="SubstrateHealthNetwork"
 LABEL maintainer="tirtad@dcentric.health"
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
+ENV TZONE=Asia/Nicosia
+ENV LANG=C.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL=C.UTF-8
+RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
-COPY --from=builder /app/target/release/aria /usr/local/bin
+# Install build dependencies
+RUN apt-get update -y \
+    && apt-get install -y automake \
+    build-essential \
+    apt-utils \
+    curl \
+    && apt-get clean
 
-# checks
-RUN ldd /usr/local/bin/aria && \
-	/usr/local/bin/aria --version
+RUN mkdir -p /root/setup
+WORKDIR /root/setup
+RUN curl https://getsubstrate.io -sSf | bash -s -- --fast
+ENV PATH=/root/.cargo/bin:$PATH
+RUN cargo --version
+RUN rustup update nightly & \
+    rustup update stable &\
+    rustup target add wasm32-unknown-unknown --toolchain nightly
 
-# Shrinking
-RUN rm -rf /usr/lib/python* && \
-	rm -rf /usr/bin /usr/sbin /usr/share/man
+RUN git clone -b v3.0.0 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template /substrate-node
+WORKDIR /substrate-node
+RUN git checkout -b my-first-substrate-chain 
+RUN cargo clean
+RUN cargo build --release
 
-USER aria
-EXPOSE 30333 9933 9944
+WORKDIR /substrate-node/target/release
 
-RUN mkdir /aria/data
-
-VOLUME ["/aria/data"]
-
-ENTRYPOINT ["/usr/local/bin/aria"]
+# Expose ports
+EXPOSE 9944
