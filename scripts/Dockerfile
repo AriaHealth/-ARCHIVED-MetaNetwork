@@ -6,10 +6,10 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
-RUN mkdir -p /app
-WORKDIR /app
+RUN mkdir -p /root
+WORKDIR /root
 
-COPY . /app
+COPY . /root
 
 RUN apt-get update -y \
     && apt-get install -y automake \
@@ -18,17 +18,17 @@ RUN apt-get update -y \
     curl \
     && apt-get clean
 
-RUN mkdir -p /app/setup
-WORKDIR /app/setup
+RUN mkdir -p /root/setup
+WORKDIR /root/setup
 
 RUN curl https://getsubstrate.io -sSf | bash -s -- --fast
-ENV PATH=/app/.cargo/bin:$PATH
+ENV PATH=/root/.cargo/bin:$PATH
 RUN cargo --version
 RUN rustup update nightly & \
     rustup update stable &\
     rustup target add wasm32-unknown-unknown --toolchain nightly
 
-WORKDIR /app
+WORKDIR /root
 RUN cargo clean
 RUN cargo build --release
 
@@ -47,7 +47,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/time
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
-COPY --from=builder /app/target/release/aria /usr/local/bin
+COPY --from=builder /root/target/release/aria /usr/local/bin
 
 # checks
 RUN ldd /usr/local/bin/aria && \
