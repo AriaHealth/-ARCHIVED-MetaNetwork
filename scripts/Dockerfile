@@ -8,6 +8,9 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
+RUN mkdir -p /root
+COPY . /root
+
 # Install build dependencies
 RUN apt-get update -y \
     && apt-get install -y automake \
@@ -25,13 +28,11 @@ RUN rustup update nightly & \
     rustup update stable &\
     rustup target add wasm32-unknown-unknown --toolchain nightly
 
-RUN git clone -b v3.0.0 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template /substrate-node
-WORKDIR /substrate-node
-RUN git checkout -b my-first-substrate-chain 
+WORKDIR /root
 RUN cargo clean
 RUN cargo build --release
 
-WORKDIR /substrate-node/target/release
+WORKDIR /root/target/release
 
 # Expose ports
 EXPOSE 9944
