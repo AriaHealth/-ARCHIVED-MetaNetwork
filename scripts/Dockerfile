@@ -47,7 +47,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/time
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
-COPY --from=builder /root/target/release/aria /usr/local/bin
+COPY --from=builder /root/target/release /usr/local/bin
 
 # checks
 RUN ldd /usr/local/bin/aria && \
