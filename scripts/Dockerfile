@@ -11,12 +11,10 @@ WORKDIR /root
 
 COPY . /root
 
-RUN apt-get update -y \
-    && apt-get install -y automake \
-    build-essential \
-    apt-utils \
-    curl \
-    && apt-get clean
+RUN apt-get update -y && \
+    apt-get dist-upgrade -y -o Dpkg::Options::="--force-confold" && \
+    apt-get install -y automake build-essential cmake apt-utils curl pkg-config libssl-dev git clang libclang-dev && \
+    apt-get clean
 
 RUN mkdir -p /root/setup
 WORKDIR /root/setup
@@ -47,11 +45,13 @@ RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/time
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
-COPY --from=builder /root/target/release /usr/local/bin
+COPY --from=builder /root/target/release/* /usr/local/bin
+
+RUN apt-get update && apt-get install build-essential -y
 
 # checks
-RUN ldd /usr/local/bin/aria && \
-    /usr/local/bin/aria --version
+RUN ldd /usr/local/bin/aria
+RUN /usr/local/bin/aria --version
 
 # Shrinking
 RUN rm -rf /usr/lib/python* && \
