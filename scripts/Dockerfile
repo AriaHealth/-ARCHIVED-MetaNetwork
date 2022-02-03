@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as builder
+FROM rust:1.50 as builder
 
 ENV TZONE=Asia/Nicosia
 ENV LANG=C.UTF-8
@@ -10,11 +10,6 @@ RUN mkdir -p /root
 WORKDIR /root
 
 COPY . /root
-
-RUN apt-get update -y && \
-    apt-get dist-upgrade -y -o Dpkg::Options::="--force-confold" && \
-    apt-get install -y automake build-essential cmake apt-utils curl pkg-config libssl-dev git clang libclang-dev && \
-    apt-get clean
 
 RUN mkdir -p /root/setup
 WORKDIR /root/setup
@@ -35,7 +30,7 @@ RUN echo $(ls -1 /root/target/release)
 
 # =============
 
-FROM phusion/baseimage:bionic-1.0.0
+FROM debian:buster-slim
 
 LABEL name="SubstrateHealthNetwork"
 LABEL maintainer="tirtad@dcentric.health"
@@ -49,8 +44,6 @@ RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/time
 RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
 COPY --from=builder /root/target/release /usr/local/bin
-
-RUN apt-get update && apt-get install build-essential -y
 
 # delete later
 RUN echo $(ls -1 /usr/local/bin)
