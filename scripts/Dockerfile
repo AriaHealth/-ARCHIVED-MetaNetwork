@@ -38,7 +38,7 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
-COPY --from=builder /root/target/release /usr/local/bin
+COPY --from=builder /root/target/release/aria /usr/local/bin
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
