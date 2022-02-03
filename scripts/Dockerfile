@@ -25,14 +25,11 @@ WORKDIR /root
 RUN cargo clean
 RUN cargo build --release
 
-# delete later
-RUN echo $(ls -1 /root/target/release)
-
 # =============
 
 FROM debian:buster-slim
 
-LABEL name="SubstrateHealthNetwork"
+LABEL name="AriaHealthNetwork"
 LABEL maintainer="tirtad@dcentric.health"
 
 ENV TZONE=Asia/Nicosia
@@ -41,12 +38,9 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
-
 COPY --from=builder /root/target/release /usr/local/bin
 
-# delete later
-RUN echo $(ls -1 /usr/local/bin)
+RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 
 # checks
 RUN ldd /usr/local/bin/aria
