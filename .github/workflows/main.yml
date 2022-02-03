@@ -42,7 +42,7 @@ jobs:
           push: true
           file: scripts/Dockerfile
           tags: |
-            dcentrichealth/substratehealthnetwork:${{ steps.vars.outputs.sha_short }}
+            dcentrichealth/aria-health-network:${{ steps.vars.outputs.sha_short }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
           
