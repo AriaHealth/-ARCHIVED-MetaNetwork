@@ -30,6 +30,9 @@ WORKDIR /root
 RUN cargo clean
 RUN cargo build --release
 
+# delete later
+RUN echo $(ls -1 /root/target/release)
+
 # =============
 
 FROM phusion/baseimage:bionic-1.0.0
@@ -48,6 +51,9 @@ RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
 COPY --from=builder /root/target/release /usr/local/bin
 
 RUN apt-get update && apt-get install build-essential -y
+
+# delete later
+RUN echo $(ls -1 /usr/local/bin)
 
 # checks
 RUN ldd /usr/local/bin/aria
