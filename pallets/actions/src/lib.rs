@@ -101,7 +101,22 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        // TODO Part III
+        RecordSubmitted(T::AccountId, T::Hash),
+        RecordAmended(T::AccountId, T::Hash),
+        RecordTransferred(T::AccountId, T::Hash),
+        RecordShared(T::AccountId, T::Hash),
+        RecordAuctioned(T::AccountId, T::Hash),
+        RecordBought(T::AccountId, T::Hash),
+        RecordDestroyed(T::AccountId, T::Hash),
+        CollectionCrowdsourced(T::AccountId, T::Hash),
+        CollectionCreated(T::AccountId, T::Hash),
+        CollectionJoined(T::AccountId, T::Hash),
+        ActorRegistered(T::AccountId, T::Hash),
+        ActorUpdated(T::AccountId, T::Hash),
+        ActorDestroyed(T::AccountId, T::Hash),
+        CoinDeposited(T::AccountId, T::Hash),
+        CoinWithdrawn(T::AccountId, T::Hash),
+        CoinTransferred(T::AccountId, T::Hash),
     }
 
     // Storage item to keep a count of all existing action records
