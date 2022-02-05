@@ -274,7 +274,7 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
-/// Configure the pallet-template in pallets/template.
+/// Configure the pallet-template in pallets/actions.
 impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
