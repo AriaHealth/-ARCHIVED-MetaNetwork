@@ -282,6 +282,7 @@ impl pallet_actions::Config for Runtime {
     type Event = Event;
     type Coin = Balances; // Aria Digital Money
     type Token = Balances; // Aria Equity Token
+    type Uniqueness = RandomnessCollectiveFlip;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

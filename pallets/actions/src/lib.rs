@@ -35,6 +35,7 @@ pub mod pallet {
         pub hash: Vec<u8>,
         pub owner: AccountOf<T>,
         pub ttl: u128,
+        pub uniq: [u8; 16],
     }
 
     // Set ActionType
@@ -75,7 +76,7 @@ pub mod pallet {
         type Coin: Currency<Self::AccountId>;
         type Token: Currency<Self::AccountId>;
 
-        // TODO Part II: Specify the custom types for our runtime.
+        type Uniqueness: Randomness<Self::Hash, Self::BlockNumber>;
     }
 
     // Errors.
@@ -92,13 +93,21 @@ pub mod pallet {
 
     // Storage item to keep a count of all existing action records
     #[pallet::storage]
-    #[pallet::getter(fn action_cnt)]
+    #[pallet::getter(fn action_count)]
     /// Keeps track of the number of actiton in existence.
-    pub(super) type ActionCnt<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub(super) type ActionCount<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-    // TODO Part II: Remaining storage items.
+    #[pallet::storage]
+    #[pallet::getter(fn action_records)]
+    /// Stores an action record
+    pub(super) type ActionRecords<T: Config> =
+        StorageMap<_, Twox64Concat, T::Hash, ActionRecord<T>>;
 
-    // TODO Part III: Our pallet's genesis configuration.
+    #[pallet::storage]
+    #[pallet::getter(fn action_records_owned)]
+    /// Keeps track of what accounts own what action record.
+    pub(super) type ActionRecordsOwned<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, Vec<T::Hash>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -116,6 +125,13 @@ pub mod pallet {
     // TODO Part II: helper function for Kitty struct
 
     impl<T: Config> Pallet<T> {
+        fn generate_uniqueness() -> [u8; 16] {
+            let payload = (
+                T::Uniqueness::random(&b"uniq"[..]).0,
+                <frame_system::Pallet<T>>::block_number(),
+            );
+            payload.using_encoded(blake2_128)
+        }
         // TODO Part III: helper functions for dispatchable functions
 
         // TODO: increment_nonce, random_hash, mint, transfer_from
