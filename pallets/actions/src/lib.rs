@@ -4,7 +4,6 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use chrono::prelude::*;
     use frame_support::{
         dispatch::{DispatchResult, DispatchResultWithPostInfo},
         pallet_prelude::*,
@@ -14,7 +13,6 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
     use sp_std::vec::Vec;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     #[cfg(feature = "std")]
     use frame_support::serde::{Deserialize, Serialize};
