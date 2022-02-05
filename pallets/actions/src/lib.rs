@@ -4,6 +4,7 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use chrono::prelude::*;
     use frame_support::{
         dispatch::{DispatchResult, DispatchResultWithPostInfo},
         pallet_prelude::*,
@@ -12,13 +13,53 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
+    use sp_std::vec::Vec;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     #[cfg(feature = "std")]
     use frame_support::serde::{Deserialize, Serialize};
+    use scale_info::TypeInfo;
 
-    // TODO Part II: Struct for holding Kitty information.
+    type AccountOf<T> = <T as frame_system::Config>::AccountId;
+    type CoinOf<T> =
+        <<T as Config>::Coin as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    type TokenOf<T> =
+        <<T as Config>::Token as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-    // TODO Part II: Enum and implementation to handle Gender type in Kitty struct.
+    // Struct for holding action record
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
+    pub struct ActionRecord<T: Config> {
+        pub action: ActionType,
+        pub epoch: u128,
+        pub hash: Vec<u8>,
+        pub owner: AccountOf<T>,
+        pub ttl: u128,
+    }
+
+    // Set ActionType
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    // YOU MAY ADD THE ACTION, BUT DO NOT CHANGE THE ORDER
+    pub enum ActionType {
+        SubmitRecord,
+        AmendRecord,
+        TransferRecord,
+        ShareRecord,
+        AuctionRecord,
+        BuyRecord,
+        CrowdsourceCollection,
+        CreateCollection,
+        JoinCollection,
+        DestroyRecord,
+        RegisterActor,
+        UpdateActor,
+        DestroyActor,
+        DepositCoin,
+        WithdrawCoin,
+        TransferCoin,
+    }
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
