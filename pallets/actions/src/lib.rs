@@ -126,7 +126,7 @@ pub mod pallet {
         RecordDestroyed(T::AccountId, T::Hash),
         CollectionCrowdsourced(T::AccountId, T::Hash),
         CollectionCreated(T::AccountId, T::Hash),
-        CollectionJoined(T::AccountId, T::Hash),
+        RecordJoinedCollection(T::AccountId, T::Hash),
         ActorRegistered(T::AccountId, T::Hash),
         ActorUpdated(T::AccountId, T::Hash),
         ActorDestroyed(T::AccountId, T::Hash),
@@ -170,36 +170,164 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // TODO : submit_record
+        #[pallet::weight(100)]
+        pub fn submit_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordSubmitted(sender, record_id));
+            Ok(())
+        }
 
         // TODO : amend_record
+        #[pallet::weight(100)]
+        pub fn amend_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordAmended(sender, record_id));
+            Ok(())
+        }
 
         // TODO : transfer_record
+        #[pallet::weight(100)]
+        pub fn transfer_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordTransferred(sender, record_id));
+            Ok(())
+        }
 
         // TODO : share_record
+        #[pallet::weight(100)]
+        pub fn share_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordShared(sender, record_id));
+            Ok(())
+        }
 
         // TODO : auction_record
+        #[pallet::weight(100)]
+        pub fn auction_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordAuctioned(sender, record_id));
+            Ok(())
+        }
 
         // TODO : buy_record
+        #[pallet::weight(100)]
+        pub fn buy_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
 
-        // TODO : crowdsource_collection
-
-        // TODO : create_collection
-
-        // TODO : join_collection
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordBought(sender, record_id));
+            Ok(())
+        }
 
         // TODO : destroy_record
+        #[pallet::weight(100)]
+        pub fn destroy_record(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordDestroyed(sender, record_id));
+            Ok(())
+        }
+
+        // TODO : crowdsource_collection
+        #[pallet::weight(100)]
+        pub fn crowdsource_collection(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::CollectionCrowdsourced(sender, record_id));
+            Ok(())
+        }
+
+        // TODO : create_collection
+        #[pallet::weight(100)]
+        pub fn create_collection(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::CollectionCreated(sender, record_id));
+            Ok(())
+        }
+
+        // TODO : join_collection
+        #[pallet::weight(100)]
+        pub fn join_collection(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::RecordJoinedCollection(sender, record_id));
+            Ok(())
+        }
 
         // TODO : register_actor
+        #[pallet::weight(100)]
+        pub fn register_actor(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::ActorRegistered(sender, record_id));
+            Ok(())
+        }
 
         // TODO : update_actor
+        #[pallet::weight(100)]
+        pub fn update_actor(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::ActorUpdated(sender, record_id));
+            Ok(())
+        }
 
         // TODO : destroy_actor
+        #[pallet::weight(100)]
+        pub fn destroy_actor(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::ActorDestroyed(sender, record_id));
+            Ok(())
+        }
 
         // TODO : deposit_coin
+        #[pallet::weight(100)]
+        pub fn deposit_coin(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::CoinDeposited(sender, record_id));
+            Ok(())
+        }
 
         // TODO : withdraw_coin
+        #[pallet::weight(100)]
+        pub fn withdraw_coin(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::CoinWithdrawn(sender, record_id));
+            Ok(())
+        }
 
         // TODO : transfer_coin
+        #[pallet::weight(100)]
+        pub fn transfer_coin(origin: OriginFor<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
+            // Self::deposit_event(Event::CoinTransferred(sender, record_id));
+            Ok(())
+        }
     }
 
     // TODO Part II: helper function for actions struct
