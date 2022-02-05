@@ -95,7 +95,23 @@ pub mod pallet {
     // Errors.
     #[pallet::error]
     pub enum Error<T> {
-        // TODO Part III
+        ActionCountOverflow,
+        ActorCountOverflow,
+        ActorDestroyIsNotAllowed,
+        AuctionPriceTooHigh,
+        AuctionPriceTooLow,
+        BuyerAlreadyOwnedRecordAccess,
+        BuyerIsRecordOwner,
+        CrowdsourceQuotaReachLimit,
+        InsufficientActorRight,
+        NotEnoughCoin,
+        NotEnoughToken,
+        NotRecordOwner,
+        RecordDestroyNotAllowed,
+        RecordNotExist,
+        RecordNotForSale,
+        ShareToSelf,
+        TransferToSelf,
     }
 
     #[pallet::event]
@@ -123,7 +139,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn action_count)]
     /// Keeps track of the number of actiton in existence.
-    pub(super) type ActionCount<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub(super) type ActionCount<T: Config> = StorageValue<_, u128, ValueQuery>;
 
     // Storage item to keep all action records
     #[pallet::storage]
@@ -143,7 +159,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn actor_count)]
     /// Keeps track of the number of actor in existence.
-    pub(super) type ActorCount<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub(super) type ActorCount<T: Config> = StorageValue<_, u128, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn actor_whois)]
