@@ -13,6 +13,9 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
 
+    #[cfg(feature = "std")]
+    use frame_support::serde::{Deserialize, Serialize};
+
     // TODO Part II: Struct for holding Kitty information.
 
     // TODO Part II: Enum and implementation to handle Gender type in Kitty struct.
@@ -28,7 +31,8 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// The Currency handler for the Kitties pallet.
-        type Currency: Currency<Self::AccountId>;
+        type Coin: Currency<Self::AccountId>;
+        type Token: Currency<Self::AccountId>;
 
         // TODO Part II: Specify the custom types for our runtime.
     }
@@ -45,7 +49,11 @@ pub mod pallet {
         // TODO Part III
     }
 
-    // ACTION: Storage item to keep a count of all existing Kitties.
+    // Storage item to keep a count of all existing action records
+    #[pallet::storage]
+    #[pallet::getter(fn action_cnt)]
+    /// Keeps track of the number of actiton in existence.
+    pub(super) type ActionCnt<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     // TODO Part II: Remaining storage items.
 

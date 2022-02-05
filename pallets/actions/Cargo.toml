@@ -1,10 +1,10 @@
 [package]
-name = "pallet-actions"
 authors = ["Tirtadwipa Manunggal <tirtad@dcentric.health>"]
 description = "ARIA ecosystem actions"
 edition = "2021"
 homepage = "https://substrate.io/"
 license = "Unlicense"
+name = "pallet-actions"
 publish = false
 repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
 version = "0.0.0-dev"
@@ -26,6 +26,9 @@ default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
+
+[dependencies.serde]
+version = '1.0.129'
 
 [dev-dependencies]
 sp-core = {default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest"}
