@@ -42,24 +42,38 @@ pub mod pallet {
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
     #[scale_info(skip_type_params(T))]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    // YOU MAY ADD THE ACTION, BUT DO NOT CHANGE THE ORDER
+    // EACH ACTION TYPE MUST HAVE THEIR OWN DISPATCHABLE
     pub enum ActionType {
-        SubmitRecord,
-        AmendRecord,
-        TransferRecord,
-        ShareRecord,
-        AuctionRecord,
-        BuyRecord,
-        CrowdsourceCollection,
-        CreateCollection,
-        JoinCollection,
-        DestroyRecord,
-        RegisterActor,
-        UpdateActor,
-        DestroyActor,
-        DepositCoin,
-        WithdrawCoin,
-        TransferCoin,
+        SubmitRecord = 0,
+        AmendRecord = 1,
+        TransferRecord = 2,
+        ShareRecord = 3,
+        AuctionRecord = 4,
+        BuyRecord = 5,
+        DestroyRecord = 6,
+        CrowdsourceCollection = 20,
+        CreateCollection = 21,
+        JoinCollection = 22,
+        RegisterActor = 40,
+        UpdateActor = 41,
+        DestroyActor = 42,
+        DepositCoin = 60,
+        WithdrawCoin = 61,
+        TransferCoin = 62,
+    }
+
+    // Set ActorRole
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, Copy)]
+    #[scale_info(skip_type_params(T))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub enum ActorRole {
+        MedicalCenter = 10,
+        MedicalProfessional = 20,
+        Patient = 30,
+        Aggregator = 40,
+        Observer = 50,
+        Node = 60,
+        Sudoer = 70,
     }
 
     #[pallet::pallet]
@@ -72,10 +86,11 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-        /// The Currency handler for the Kitties pallet.
+        /// The currency handler for the actions pallet.
         type Coin: Currency<Self::AccountId>;
         type Token: Currency<Self::AccountId>;
 
+        /// The randomness property of actions pallet.
         type Uniqueness: Randomness<Self::Hash, Self::BlockNumber>;
     }
 
@@ -97,32 +112,68 @@ pub mod pallet {
     /// Keeps track of the number of actiton in existence.
     pub(super) type ActionCount<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+    // Storage item to keep all action records
     #[pallet::storage]
     #[pallet::getter(fn action_records)]
     /// Stores an action record
     pub(super) type ActionRecords<T: Config> =
         StorageMap<_, Twox64Concat, T::Hash, ActionRecord<T>>;
 
+    // Storage item to keep all action records ownership
     #[pallet::storage]
     #[pallet::getter(fn action_records_owned)]
     /// Keeps track of what accounts own what action record.
     pub(super) type ActionRecordsOwned<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, Vec<T::Hash>, ValueQuery>;
 
+    // Storage item to keep all actor in existence
+    #[pallet::storage]
+    #[pallet::getter(fn actor_count)]
+    /// Keeps track of the number of actor in existence.
+    pub(super) type ActorCount<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn actor_whois)]
+    /// Keeps track of what accounts own what role.
+    pub(super) type ActorWhois<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, u8, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // TODO Part III: create_kitty
+        // TODO : submit_record
 
-        // TODO Part III: set_price
+        // TODO : amend_record
 
-        // TODO Part III: transfer
+        // TODO : transfer_record
 
-        // TODO Part III: buy_kitty
+        // TODO : share_record
 
-        // TODO Part III: breed_kitty
+        // TODO : auction_record
+
+        // TODO : buy_record
+
+        // TODO : crowdsource_collection
+
+        // TODO : create_collection
+
+        // TODO : join_collection
+
+        // TODO : destroy_record
+
+        // TODO : register_actor
+
+        // TODO : update_actor
+
+        // TODO : destroy_actor
+
+        // TODO : deposit_coin
+
+        // TODO : withdraw_coin
+
+        // TODO : transfer_coin
     }
 
-    // TODO Part II: helper function for Kitty struct
+    // TODO Part II: helper function for actions struct
 
     impl<T: Config> Pallet<T> {
         fn generate_uniqueness() -> [u8; 16] {
