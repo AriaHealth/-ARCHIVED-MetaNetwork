@@ -4,21 +4,22 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use frame_support::pallet_prelude::*;
     use frame_support::{
-        dispatch::{DispatchResult, DispatchResultWithPostInfo},
-        pallet_prelude::*,
-        sp_runtime::traits::{Hash, Zero},
-        traits::{Currency, ExistenceRequirement, Randomness},
+        sp_runtime::traits::Hash,
+        traits::{tokens::ExistenceRequirement, Currency, Randomness},
+        transactional,
     };
     use frame_system::pallet_prelude::*;
+    use scale_info::TypeInfo;
     use sp_io::hashing::blake2_128;
     use sp_std::vec::Vec;
 
     #[cfg(feature = "std")]
     use frame_support::serde::{Deserialize, Serialize};
-    use scale_info::TypeInfo;
 
     type AccountOf<T> = <T as frame_system::Config>::AccountId;
+
     type CoinOf<T> =
         <<T as Config>::Coin as Currency<<T as frame_system::Config>::AccountId>>::Balance;
     type TokenOf<T> =
@@ -29,11 +30,16 @@ pub mod pallet {
     #[scale_info(skip_type_params(T))]
     pub struct ActionRecord<T: Config> {
         pub action: ActionType,
-        pub epoch: u128,
         pub hash: Vec<u8>,
         pub owner: AccountOf<T>,
-        pub ttl: u128,
         pub uniq: [u8; 16],
+    }
+
+    // Struct for holding virtual wallet
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
+    pub struct VirtualWallet {
+        pub beneficiary: Vec<u8>,
     }
 
     // Set ActionType
@@ -55,6 +61,7 @@ pub mod pallet {
         RegisterActor = 40,
         UpdateActor = 41,
         DestroyActor = 42,
+        RegisterVirtualPatient = 43,
         DepositCoin = 60,
         WithdrawCoin = 61,
         TransferCoin = 62,
@@ -68,6 +75,7 @@ pub mod pallet {
         MedicalCenter = 10,
         MedicalProfessional = 20,
         Patient = 30,
+        VirtualPatient = 31,
         Aggregator = 40,
         Observer = 50,
         Node = 60,
@@ -87,6 +95,10 @@ pub mod pallet {
         /// The currency handler for the actions pallet.
         type Coin: Currency<Self::AccountId>;
         type Token: Currency<Self::AccountId>;
+
+        /// The maximum amount of action records a single account can own.
+        #[pallet::constant]
+        type MaxRecordsOwned: Get<u32>;
 
         /// The randomness property of actions pallet.
         type Uniqueness: Randomness<Self::Hash, Self::BlockNumber>;
@@ -112,6 +124,8 @@ pub mod pallet {
         RecordNotForSale,
         ShareToSelf,
         TransferToSelf,
+        ExceedMaxActionOwned,
+        VirtualWalletCountOverflow,
     }
 
     #[pallet::event]
@@ -133,6 +147,7 @@ pub mod pallet {
         CoinDeposited(T::AccountId, T::Hash),
         CoinWithdrawn(T::AccountId, T::Hash),
         CoinTransferred(T::AccountId, T::Hash),
+        VirtualWalletCreated(T::AccountId, Vec<u8>),
     }
 
     // Storage item to keep a count of all existing action records
@@ -167,11 +182,23 @@ pub mod pallet {
     pub(super) type ActorWhois<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, u8, ValueQuery>;
 
+    // Storage item to keep a count of all existing action records
+    #[pallet::storage]
+    #[pallet::getter(fn virtual_wallet_count)]
+    /// Keeps track of the number of actiton in existence.
+    pub(super) type VirtualWalletCount<T: Config> = StorageValue<_, u128, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn virtual_wallets)]
+    /// Stores an virtual wallet record
+    pub(super) type VirtualWallets<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, VirtualWallet>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // TODO : submit_record
+        // TODO : submit action_record
         #[pallet::weight(100)]
-        pub fn submit_record(origin: OriginFor<T>) -> DispatchResult {
+        pub fn submit_action_record(origin: OriginFor<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
@@ -179,153 +206,24 @@ pub mod pallet {
             Ok(())
         }
 
-        // TODO : amend_record
+        // TODO : submit virtual_wallet
         #[pallet::weight(100)]
-        pub fn amend_record(origin: OriginFor<T>) -> DispatchResult {
+        pub fn submit_virtual_wallet(
+            origin: OriginFor<T>,
+            virtual_wallet_id: T::AccountId,
+            beneficiary: Vec<u8>,
+        ) -> DispatchResult {
+            // // TODO ensure the sender is SUDO
             let sender = ensure_signed(origin)?;
 
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordAmended(sender, record_id));
-            Ok(())
-        }
+            let kitty_id = Self::register_virtual_wallet(&virtual_wallet_id, &beneficiary);
 
-        // TODO : transfer_record
-        #[pallet::weight(100)]
-        pub fn transfer_record(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+            log::info!(
+                "A virtual wallet is createdis born with ID: {:?}.",
+                &virtual_wallet_id
+            );
+            Self::deposit_event(Event::VirtualWalletCreated(virtual_wallet_id, beneficiary));
 
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordTransferred(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : share_record
-        #[pallet::weight(100)]
-        pub fn share_record(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordShared(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : auction_record
-        #[pallet::weight(100)]
-        pub fn auction_record(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordAuctioned(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : buy_record
-        #[pallet::weight(100)]
-        pub fn buy_record(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordBought(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : destroy_record
-        #[pallet::weight(100)]
-        pub fn destroy_record(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordDestroyed(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : crowdsource_collection
-        #[pallet::weight(100)]
-        pub fn crowdsource_collection(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::CollectionCrowdsourced(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : create_collection
-        #[pallet::weight(100)]
-        pub fn create_collection(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::CollectionCreated(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : join_collection
-        #[pallet::weight(100)]
-        pub fn join_collection(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::RecordJoinedCollection(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : register_actor
-        #[pallet::weight(100)]
-        pub fn register_actor(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::ActorRegistered(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : update_actor
-        #[pallet::weight(100)]
-        pub fn update_actor(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::ActorUpdated(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : destroy_actor
-        #[pallet::weight(100)]
-        pub fn destroy_actor(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::ActorDestroyed(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : deposit_coin
-        #[pallet::weight(100)]
-        pub fn deposit_coin(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::CoinDeposited(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : withdraw_coin
-        #[pallet::weight(100)]
-        pub fn withdraw_coin(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::CoinWithdrawn(sender, record_id));
-            Ok(())
-        }
-
-        // TODO : transfer_coin
-        #[pallet::weight(100)]
-        pub fn transfer_coin(origin: OriginFor<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            // log::info!("🧑‍⚕️ An action record is minted with ID ➡ {:?}.", record_id);
-            // Self::deposit_event(Event::CoinTransferred(sender, record_id));
             Ok(())
         }
     }
@@ -340,6 +238,54 @@ pub mod pallet {
             );
             payload.using_encoded(blake2_128)
         }
+
+        pub fn mint(
+            action: &ActionType,
+            hash: &Vec<u8>,
+            owner: &T::AccountId,
+            uniq: &[u8; 16],
+        ) -> Result<T::Hash, Error<T>> {
+            let action_record = ActionRecord::<T> {
+                action: action.clone(),
+                hash: hash.clone(),
+                owner: owner.clone(),
+                uniq: uniq.clone(),
+            };
+
+            let action_record_id = T::Hashing::hash_of(&action_record);
+
+            // Performs this operation first as it may fail
+            let new_cnt = Self::action_count()
+                .checked_add(1)
+                .ok_or(<Error<T>>::ActionCountOverflow)?;
+
+            // Performs this operation first because as it may fail
+
+            <ActionRecordsOwned<T>>::mutate(&owner, |action_vec| action_vec.push(action_record_id));
+
+            <ActionRecords<T>>::insert(action_record_id, action_record);
+            <ActionCount<T>>::put(new_cnt);
+            Ok(action_record_id)
+        }
+
+        pub fn register_virtual_wallet(
+            virtual_wallet_id: &T::AccountId,
+            beneficiary: &Vec<u8>,
+        ) -> Result<T::AccountId, Error<T>> {
+            let virtual_wallet = VirtualWallet {
+                beneficiary: beneficiary.clone(),
+            };
+
+            // Performs this operation first as it may fail
+            let new_cnt = Self::virtual_wallet_count()
+                .checked_add(1)
+                .ok_or(<Error<T>>::VirtualWalletCountOverflow)?;
+
+            <VirtualWallets<T>>::insert(virtual_wallet_id.clone(), virtual_wallet);
+            <VirtualWalletCount<T>>::put(new_cnt);
+            Ok(virtual_wallet_id.clone())
+        }
+
         // TODO Part III: helper functions for dispatchable functions
 
         // TODO: increment_nonce, random_hash, mint, transfer_from

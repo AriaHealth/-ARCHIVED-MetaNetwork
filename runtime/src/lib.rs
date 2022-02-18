@@ -277,11 +277,16 @@ impl pallet_sudo::Config for Runtime {
     type Call = Call;
 }
 
+parameter_types! {
+    pub const MaxRecordsOwned: u32 = u32::MAX;
+}
+
 /// Configure the pallet-actions in pallets/actions.
 impl pallet_actions::Config for Runtime {
     type Event = Event;
     type Coin = Balances; // Aria Digital Money
     type Token = Balances; // Aria Equity Token
+    type MaxRecordsOwned = MaxRecordsOwned;
     type Uniqueness = RandomnessCollectiveFlip;
 }
 
