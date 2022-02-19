@@ -1,10 +1,10 @@
 [package]
 authors = ["Tirtadwipa Manunggal <tirtad@dcentric.health>"]
-description = "ARIA ecosystem actions"
+description = "ARIA meta medical records"
 edition = "2021"
 homepage = "https://substrate.io/"
 license = "Unlicense"
-name = "pallet-actions"
+name = "pallet-meta"
 publish = false
 repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
 version = "0.0.0-dev"

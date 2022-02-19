@@ -40,8 +40,8 @@ use pallet_transaction_payment::CurrencyAdapter;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the actions pallet.
-pub use pallet_actions;
+/// Import the meta pallet.
+pub use pallet_meta;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -278,15 +278,16 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxRecordsOwned: u32 = u32::MAX;
+    pub const MaxVirtualAccountsOwned: u16 = u16::MAX;
+    pub const MaxMetasOwned: u64 = u64::MAX;
 }
 
-/// Configure the pallet-actions in pallets/actions.
-impl pallet_actions::Config for Runtime {
+/// Configure the pallet-meta in pallets/meta.
+impl pallet_meta::Config for Runtime {
     type Event = Event;
     type Coin = Balances; // Aria Digital Money
-    type Token = Balances; // Aria Equity Token
-    type MaxRecordsOwned = MaxRecordsOwned;
+    type MaxMetasOwned = MaxMetasOwned;
+    type MaxVirtualAccountsOwned = MaxVirtualAccountsOwned;
     type Uniqueness = RandomnessCollectiveFlip;
 }
 
@@ -306,7 +307,7 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment,
         Sudo: pallet_sudo,
         // Include the custom logic from the pallet-template in the runtime.
-        TemplateModule: pallet_actions,
+        TemplateModule: pallet_meta,
     }
 );
 
@@ -485,7 +486,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
             list_benchmark!(list, extra, pallet_balances, Balances);
             list_benchmark!(list, extra, pallet_timestamp, Timestamp);
-            list_benchmark!(list, extra, pallet_actions, TemplateModule);
+            list_benchmark!(list, extra, pallet_meta, TemplateModule);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -523,7 +524,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-            add_benchmark!(params, batches, pallet_actions, TemplateModule);
+            add_benchmark!(params, batches, pallet_meta, TemplateModule);
 
             Ok(batches)
         }
