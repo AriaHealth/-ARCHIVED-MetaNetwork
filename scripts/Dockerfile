@@ -29,7 +29,7 @@ RUN cargo build --release
 
 FROM debian:buster-slim
 
-LABEL name="AriaHealthNetwork"
+LABEL name="MetaNetwork"
 LABEL maintainer="tirtad@dcentric.health"
 
 ENV TZONE=Asia/Nicosia
@@ -38,23 +38,23 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/$TZONE /etc/localtime && echo $TZONE > /etc/timezone
 
-COPY --from=builder /root/target/release/aria /usr/local/bin
+COPY --from=builder /root/target/release/meta /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /aria aria
+RUN useradd -m -u 1000 -U -s /bin/sh -d /meta meta
 
 # checks
-RUN ldd /usr/local/bin/aria
-RUN /usr/local/bin/aria --version
+RUN ldd /usr/local/bin/meta
+RUN /usr/local/bin/meta --version
 
 # Shrinking
 RUN rm -rf /usr/lib/python* && \
     rm -rf /usr/bin /usr/sbin /usr/share/man
 
-USER aria
+USER meta
 EXPOSE 30333 9933 9944
 
-RUN mkdir /aria/data
+RUN mkdir /meta/data
 
-VOLUME ["/aria/data"]
+VOLUME ["/meta/data"]
 
-ENTRYPOINT ["/usr/local/bin/aria"]
+ENTRYPOINT ["/usr/local/bin/meta"]
