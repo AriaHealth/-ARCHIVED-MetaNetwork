@@ -243,6 +243,7 @@ impl pallet_timestamp::Config for Runtime {
 parameter_types! {
     pub const ExistentialDeposit: u128 = 500;
     pub const MaxLocks: u32 = 50;
+
 }
 
 impl pallet_balances::Config for Runtime {
@@ -280,6 +281,7 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
     pub const MaxVirtualAccountsOwned: u32 = 1235;
     pub const MaxMetasOwned: u32 = 12345;
+    pub const MaxMetasCreated: u32 = 12345;
 }
 
 /// Configure the pallet-meta in pallets/meta.
@@ -287,6 +289,7 @@ impl pallet_meta::Config for Runtime {
     type Event = Event;
     type Coin = Balances; // Aria Digital Money
     type MaxMetasOwned = MaxMetasOwned;
+    type MaxMetasCreated = MaxMetasCreated;
     type MaxVirtualAccountsOwned = MaxVirtualAccountsOwned;
     type Uniqueness = RandomnessCollectiveFlip;
 }

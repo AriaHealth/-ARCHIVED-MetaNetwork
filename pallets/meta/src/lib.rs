@@ -7,7 +7,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::{
         sp_runtime::traits::Hash,
-        traits::{tokens::ExistenceRequirement, Currency, Randomness},
+        traits::{tokens::ExistenceRequirement, Currency},
         transactional,
     };
     use frame_system::pallet_prelude::*;
@@ -25,18 +25,27 @@ pub mod pallet {
 
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
     #[scale_info(skip_type_params(T))]
-    pub struct MetaMedicalRecord<T: Config> {
+    pub struct Meta<T: Config> {
         pub sender: AccountOf<T>,
-        pub hash: Vec<u8>,
-        pub owner: AccountOf<T>,
-        pub uniq: [u8; 16],
+        pub metahash: Vec<u8>,
+        pub owner: Vec<u8>,
+        pub price: Option<CoinOf<T>>,
     }
 
-    // Struct for holding virtual account
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
     #[scale_info(skip_type_params(T))]
     pub struct VirtualAccount<T: Config> {
-        pub beneficiary: Vec<u8>,
+        pub owner: Vec<u8>,
+        pub beneficiary: Option<Vec<u8>>,
+        pub sender: AccountOf<T>,
+    }
+
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
+    pub struct Cheque<T: Config> {
+        pub owner: Vec<u8>,
+        pub claimed: bool,
+        pub amount: CoinOf<T>,
         pub sender: AccountOf<T>,
     }
 
@@ -64,43 +73,52 @@ pub mod pallet {
         type MaxMetasOwned: Get<u32>;
 
         #[pallet::constant]
-        type MaxVirtualAccountsOwned: Get<u32>;
+        type MaxMetasCreated: Get<u32>;
 
-        /// The randomness property of actions pallet.
-        type Uniqueness: Randomness<Self::Hash, Self::BlockNumber>;
+        #[pallet::constant]
+        type MaxVirtualAccountsOwned: Get<u32>;
     }
 
     // Errors.
     #[pallet::error]
     pub enum Error<T> {
-        MetaMedicalRecordCountOverflow,
+        MetaCountOverflow,
         VirtualAccountCountOverflow,
-        ExceedMaxMetaMedicalRecordOwned,
+        ExceedMaxMetasOwned,
+        ExceedMaxMetasCreated,
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        MetaMedicalRecord(T::AccountId, T::Hash),
-        VirtualAccountCreated(T::AccountId, T::AccountId),
+        MetaCreated(T::AccountId, T::Hash),
+        VirtualAccountCreated(Vec<u8>, Vec<u8>),
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn action_count)]
-    pub(super) type MetaMedicalRecordsCount<T: Config> = StorageValue<_, u128, ValueQuery>;
+    #[pallet::getter(fn metas_count)]
+    pub(super) type MetasCount<T: Config> = StorageValue<_, u128, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn action_records)]
-    pub(super) type MetaMedicalRecords<T: Config> =
-        StorageMap<_, Twox64Concat, T::Hash, MetaMedicalRecord<T>>;
+    #[pallet::getter(fn escrow_coin)]
+    pub(super) type EscrowCoin<T: Config> = StorageValue<_, CoinOf<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn action_records_owned)]
-    pub(super) type MetaMedicalRecordsOwned<T: Config> = StorageMap<
+    #[pallet::getter(fn metas)]
+    pub(super) type Metas<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Meta<T>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn metas_owned)]
+    pub(super) type MetasOwned<T: Config> =
+        StorageMap<_, Twox64Concat, Vec<u8>, BoundedVec<T::Hash, T::MaxMetasOwned>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn metas_created)]
+    pub(super) type MetasCreated<T: Config> = StorageMap<
         _,
         Twox64Concat,
         T::AccountId,
-        BoundedVec<T::Hash, T::MaxMetasOwned>,
+        BoundedVec<T::Hash, T::MaxMetasCreated>,
         ValueQuery,
     >;
 
@@ -111,94 +129,57 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn virtual_accounts)]
     pub(super) type VirtualAccounts<T: Config> =
-        StorageMap<_, Twox64Concat, T::AccountId, VirtualAccount<T>>;
+        StorageMap<_, Twox64Concat, Vec<u8>, VirtualAccount<T>>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(100)]
-        pub fn submit_meta_medical_record(
+        pub fn create_meta(
             origin: OriginFor<T>,
-            hash: Vec<u8>,
-            owner: T::AccountId,
+            metahash: Vec<u8>,
+            owner: Vec<u8>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            let meta_medical_record_id = Self::mint(&sender, &hash, &owner)?;
+            let meta = Meta::<T> {
+                sender: sender.clone(),
+                metahash: metahash.clone(),
+                owner: owner.clone(),
+                price: None,
+            };
 
-            log::info!(
-                "A meta medical record is minted with ID: {:?}.",
-                meta_medical_record_id
-            );
-            Self::deposit_event(Event::MetaMedicalRecord(sender, meta_medical_record_id));
+            let meta_id = T::Hashing::hash_of(&meta);
+
+            let new_cnt = Self::metas_count()
+                .checked_add(1)
+                .ok_or(<Error<T>>::MetaCountOverflow)?;
+
+            <MetasOwned<T>>::try_mutate(&owner, |meta_vec| meta_vec.try_push(meta_id))
+                .map_err(|_| <Error<T>>::ExceedMaxMetasOwned)?;
+            <MetasCreated<T>>::try_mutate(&sender, |meta_vec| meta_vec.try_push(meta_id))
+                .map_err(|_| <Error<T>>::ExceedMaxMetasCreated)?;
+
+            <Metas<T>>::insert(meta_id, meta);
+            <MetasCount<T>>::put(new_cnt);
+
+            log::info!("A meta medical record is minted with ID: {:?}.", meta_id);
+            Self::deposit_event(Event::MetaCreated(sender, meta_id));
 
             Ok(())
         }
 
         #[pallet::weight(100)]
-        pub fn submit_virtual_account(
+        pub fn create_virtual_account(
             origin: OriginFor<T>,
-            virtual_account_id: T::AccountId,
-            beneficiary: Vec<u8>,
+            virtual_account_id: Vec<u8>,
+            owner: Vec<u8>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            let _ = Self::register(&sender, &virtual_account_id, &beneficiary);
-
-            log::info!(
-                "A virtual account is created with ID: {:?}.",
-                &virtual_account_id
-            );
-            Self::deposit_event(Event::VirtualAccountCreated(virtual_account_id, sender));
-
-            Ok(())
-        }
-    }
-
-    impl<T: Config> Pallet<T> {
-        fn generate_uniqueness() -> [u8; 16] {
-            let payload = (
-                T::Uniqueness::random(&b"uniq"[..]).0,
-                <frame_system::Pallet<T>>::block_number(),
-            );
-            payload.using_encoded(blake2_128)
-        }
-
-        pub fn mint(
-            sender: &T::AccountId,
-            hash: &Vec<u8>,
-            owner: &T::AccountId,
-        ) -> Result<T::Hash, Error<T>> {
-            let action_record = MetaMedicalRecord::<T> {
-                sender: sender.clone(),
-                hash: hash.clone(),
-                owner: owner.clone(),
-                uniq: Self::generate_uniqueness(),
-            };
-
-            let meta_medical_record_id = T::Hashing::hash_of(&action_record);
-
-            let new_cnt = Self::action_count()
-                .checked_add(1)
-                .ok_or(<Error<T>>::MetaMedicalRecordCountOverflow)?;
-
-            <MetaMedicalRecordsOwned<T>>::try_mutate(&owner, |meta_medical_record_vec| {
-                meta_medical_record_vec.try_push(meta_medical_record_id)
-            })
-            .map_err(|_| <Error<T>>::ExceedMaxMetaMedicalRecordOwned)?;
-
-            <MetaMedicalRecords<T>>::insert(meta_medical_record_id, action_record);
-            <MetaMedicalRecordsCount<T>>::put(new_cnt);
-            Ok(meta_medical_record_id)
-        }
-
-        pub fn register(
-            sender: &T::AccountId,
-            virtual_account_id: &T::AccountId,
-            beneficiary: &Vec<u8>,
-        ) -> Result<T::AccountId, Error<T>> {
             let virtual_account = VirtualAccount {
-                beneficiary: beneficiary.clone(),
+                owner: owner.clone(),
                 sender: sender.clone(),
+                beneficiary: None,
             };
 
             // Performs this operation first as it may fail
@@ -208,7 +189,16 @@ pub mod pallet {
 
             <VirtualAccounts<T>>::insert(virtual_account_id.clone(), virtual_account);
             <VirtualAccountCount<T>>::put(new_cnt);
-            Ok(virtual_account_id.clone())
+
+            log::info!(
+                "A virtual account is created with ID: {:?}.",
+                &virtual_account_id
+            );
+            Self::deposit_event(Event::VirtualAccountCreated(virtual_account_id, owner));
+
+            Ok(())
         }
     }
+
+    impl<T: Config> Pallet<T> {}
 }
