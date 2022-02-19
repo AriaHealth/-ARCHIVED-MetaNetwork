@@ -61,10 +61,10 @@ pub mod pallet {
         type Coin: Currency<Self::AccountId>;
 
         #[pallet::constant]
-        type MaxMetasOwned: Get<u64>;
+        type MaxMetasOwned: Get<u32>;
 
         #[pallet::constant]
-        type MaxVirtualAccountsOwned: Get<u16>;
+        type MaxVirtualAccountsOwned: Get<u32>;
 
         /// The randomness property of actions pallet.
         type Uniqueness: Randomness<Self::Hash, Self::BlockNumber>;
@@ -142,7 +142,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            let _ = Self::register_virtual_account(&virtual_account_id, &beneficiary);
+            let _ = Self::register(&sender, &virtual_account_id, &beneficiary);
 
             log::info!(
                 "A virtual account is created with ID: {:?}.",
@@ -191,7 +191,7 @@ pub mod pallet {
             Ok(meta_medical_record_id)
         }
 
-        pub fn register_virtual_account(
+        pub fn register(
             sender: &T::AccountId,
             virtual_account_id: &T::AccountId,
             beneficiary: &Vec<u8>,

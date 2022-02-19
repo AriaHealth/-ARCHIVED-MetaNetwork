@@ -278,8 +278,8 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxVirtualAccountsOwned: u16 = u16::MAX;
-    pub const MaxMetasOwned: u64 = u64::MAX;
+    pub const MaxVirtualAccountsOwned: u32 = 1235;
+    pub const MaxMetasOwned: u32 = 12345;
 }
 
 /// Configure the pallet-meta in pallets/meta.
@@ -486,7 +486,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
             list_benchmark!(list, extra, pallet_balances, Balances);
             list_benchmark!(list, extra, pallet_timestamp, Timestamp);
-            list_benchmark!(list, extra, pallet_meta, TemplateModule);
+            list_benchmark!(list, extra, pallet_template, TemplateModule);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -524,7 +524,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-            add_benchmark!(params, batches, pallet_meta, TemplateModule);
+            add_benchmark!(params, batches, pallet_template, TemplateModule);
 
             Ok(batches)
         }
