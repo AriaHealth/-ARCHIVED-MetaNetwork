@@ -139,6 +139,8 @@ pub mod pallet {
         ) -> DispatchResult {
             let creator = ensure_signed(origin)?;
 
+            // TODO ensure the owner hash is exist
+
             let meta = Meta::<T> {
                 creator: creator.clone(),
                 metahash: metahash.clone(),
