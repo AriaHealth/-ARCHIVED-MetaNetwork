@@ -279,9 +279,8 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxVirtualAccountsOwned: u32 = 1235;
-    pub const MaxMetasOwned: u32 = 12345;
-    pub const MaxMetasCreated: u32 = 12345;
+    pub const MaxMetasOwned: u32 = u32::MAX;
+    pub const MaxMetasGranted: u32 = u32::MAX;
 }
 
 /// Configure the pallet-meta in pallets/meta.
@@ -289,9 +288,7 @@ impl pallet_meta::Config for Runtime {
     type Event = Event;
     type Coin = Balances; // Aria Digital Money
     type MaxMetasOwned = MaxMetasOwned;
-    type MaxMetasCreated = MaxMetasCreated;
-    type MaxVirtualAccountsOwned = MaxVirtualAccountsOwned;
-    type Uniqueness = RandomnessCollectiveFlip;
+    type MaxMetasGranted = MaxMetasGranted;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

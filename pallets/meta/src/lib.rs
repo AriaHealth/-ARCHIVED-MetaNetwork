@@ -4,6 +4,10 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use argon2::{
+        password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+        Argon2,
+    };
     use frame_support::pallet_prelude::*;
     use frame_support::{
         sp_runtime::traits::Hash,
@@ -26,27 +30,21 @@ pub mod pallet {
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
     #[scale_info(skip_type_params(T))]
     pub struct Meta<T: Config> {
-        pub sender: AccountOf<T>,
-        pub metahash: Vec<u8>,
-        pub owner: Vec<u8>,
-        pub price: Option<CoinOf<T>>,
+        pub creator: AccountOf<T>,    // meta creator
+        pub metahash: Vec<u8>,        // meta SHA256 hash
+        pub owner: T::Hash,           // meta account id
+        pub price: Option<CoinOf<T>>, // price of the meta
     }
 
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
     #[scale_info(skip_type_params(T))]
-    pub struct VirtualAccount<T: Config> {
-        pub owner: Vec<u8>,
-        pub beneficiary: Option<Vec<u8>>,
-        pub sender: AccountOf<T>,
-    }
-
-    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
-    #[scale_info(skip_type_params(T))]
-    pub struct Cheque<T: Config> {
-        pub owner: Vec<u8>,
-        pub claimed: bool,
-        pub amount: CoinOf<T>,
-        pub sender: AccountOf<T>,
+    pub struct MetaAccount<T: Config> {
+        pub escrow: AccountOf<T>,         // chosen intermediary
+        pub creator: AccountOf<T>,        // meta accout creator
+        pub credit: u64,                  // meta account balance
+        pub beneficiary: Option<Vec<u8>>, // argon2id hashed wallet address
+        pub identity: Vec<u8>,            // argon2id hashed owner email
+        pub is_virtual: bool,             // false means creator is the owner
     }
 
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
@@ -73,35 +71,35 @@ pub mod pallet {
         type MaxMetasOwned: Get<u32>;
 
         #[pallet::constant]
-        type MaxMetasCreated: Get<u32>;
-
-        #[pallet::constant]
-        type MaxVirtualAccountsOwned: Get<u32>;
+        type MaxMetasGranted: Get<u32>;
     }
 
     // Errors.
     #[pallet::error]
     pub enum Error<T> {
-        MetaCountOverflow,
-        VirtualAccountCountOverflow,
+        BuyerIsMetaCreator,
+        ExceedMaxMetasGranted,
         ExceedMaxMetasOwned,
-        ExceedMaxMetasCreated,
+        MetaAccountCountOverflow,
+        MetaAccountNotExist,
+        MetaCountOverflow,
+        MetaNotExist,
+        MetaNotForSale,
+        NotEnoughCoin,
+        UnprocessableCoin,
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         MetaCreated(T::AccountId, T::Hash),
-        VirtualAccountCreated(Vec<u8>, Vec<u8>),
+        MetaBought(T::AccountId, T::Hash),
+        MetaAccountCreated(T::Hash),
     }
 
     #[pallet::storage]
     #[pallet::getter(fn metas_count)]
     pub(super) type MetasCount<T: Config> = StorageValue<_, u128, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn escrow_coin)]
-    pub(super) type EscrowCoin<T: Config> = StorageValue<_, CoinOf<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn metas)]
@@ -110,42 +108,42 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn metas_owned)]
     pub(super) type MetasOwned<T: Config> =
-        StorageMap<_, Twox64Concat, Vec<u8>, BoundedVec<T::Hash, T::MaxMetasOwned>, ValueQuery>;
+        StorageMap<_, Twox64Concat, T::Hash, BoundedVec<T::Hash, T::MaxMetasOwned>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn metas_created)]
-    pub(super) type MetasCreated<T: Config> = StorageMap<
+    #[pallet::getter(fn metas_granted)]
+    pub(super) type MetasGranted<T: Config> = StorageMap<
         _,
         Twox64Concat,
         T::AccountId,
-        BoundedVec<T::Hash, T::MaxMetasCreated>,
+        BoundedVec<T::Hash, T::MaxMetasGranted>,
         ValueQuery,
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn virtual_account_count)]
-    pub(super) type VirtualAccountCount<T: Config> = StorageValue<_, u128, ValueQuery>;
+    #[pallet::getter(fn meta_account_count)]
+    pub(super) type MetaAccountCount<T: Config> = StorageValue<_, u128, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn virtual_accounts)]
-    pub(super) type VirtualAccounts<T: Config> =
-        StorageMap<_, Twox64Concat, Vec<u8>, VirtualAccount<T>>;
+    #[pallet::getter(fn meta_accounts)]
+    pub(super) type MetaAccounts<T: Config> = StorageMap<_, Twox64Concat, T::Hash, MetaAccount<T>>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(100)]
+        #[pallet::weight(10_000)]
         pub fn create_meta(
             origin: OriginFor<T>,
             metahash: Vec<u8>,
-            owner: Vec<u8>,
+            owner: T::Hash,
+            price: Option<CoinOf<T>>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+            let creator = ensure_signed(origin)?;
 
             let meta = Meta::<T> {
-                sender: sender.clone(),
+                creator: creator.clone(),
                 metahash: metahash.clone(),
                 owner: owner.clone(),
-                price: None,
+                price: price.clone(),
             };
 
             let meta_id = T::Hashing::hash_of(&meta);
@@ -156,49 +154,113 @@ pub mod pallet {
 
             <MetasOwned<T>>::try_mutate(&owner, |meta_vec| meta_vec.try_push(meta_id))
                 .map_err(|_| <Error<T>>::ExceedMaxMetasOwned)?;
-            <MetasCreated<T>>::try_mutate(&sender, |meta_vec| meta_vec.try_push(meta_id))
-                .map_err(|_| <Error<T>>::ExceedMaxMetasCreated)?;
+            <MetasGranted<T>>::try_mutate(&creator, |meta_vec| meta_vec.try_push(meta_id))
+                .map_err(|_| <Error<T>>::ExceedMaxMetasGranted)?;
 
             <Metas<T>>::insert(meta_id, meta);
             <MetasCount<T>>::put(new_cnt);
 
-            log::info!("A meta medical record is minted with ID: {:?}.", meta_id);
-            Self::deposit_event(Event::MetaCreated(sender, meta_id));
+            log::info!("A meta is minted [ID {:?}]", meta_id);
+            Self::deposit_event(Event::MetaCreated(creator, meta_id));
 
             Ok(())
         }
 
-        #[pallet::weight(100)]
-        pub fn create_virtual_account(
-            origin: OriginFor<T>,
-            virtual_account_id: Vec<u8>,
-            owner: Vec<u8>,
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+        #[pallet::weight(10_000)]
+        pub fn buy_meta(origin: OriginFor<T>, meta_id: T::Hash) -> DispatchResult {
+            let buyer = ensure_signed(origin)?;
 
-            let virtual_account = VirtualAccount {
-                owner: owner.clone(),
-                sender: sender.clone(),
-                beneficiary: None,
+            let meta = Self::metas(&meta_id).ok_or(<Error<T>>::MetaNotExist)?;
+            let mut owner =
+                Self::meta_accounts(&meta.owner).ok_or(<Error<T>>::MetaAccountNotExist)?;
+
+            // Check if buyer is not the meta creator
+            ensure!(meta.creator != buyer, <Error<T>>::BuyerIsMetaCreator);
+
+            // TODO check if buyer is the real owner, if yes throw error. Validate using argon2
+
+            // Verify the buyer has the capacity to receive one more meta
+            let metas_granted = <MetasGranted<T>>::get(&buyer);
+            ensure!(
+                (metas_granted.len() as u32) < T::MaxMetasGranted::get(),
+                <Error<T>>::ExceedMaxMetasGranted
+            );
+
+            let escrow = owner.escrow.clone();
+
+            if let Some(price) = meta.price {
+                // Check the buyer has enough free coin
+                ensure!(
+                    T::Coin::free_balance(&buyer) >= price,
+                    <Error<T>>::NotEnoughCoin
+                );
+
+                // Transfer the amount from buyer to escrow
+                T::Coin::transfer(&buyer, &escrow, price, ExistenceRequirement::KeepAlive)?;
+
+                // Increase owner credit
+                if let Some(credit) = Self::coin_to_u64(price) {
+                    owner.credit = owner.credit.clone() + credit;
+                    <MetaAccounts<T>>::insert(&meta.owner, owner);
+                } else {
+                    Err(<Error<T>>::UnprocessableCoin)?;
+                }
+            } else {
+                // Check the meta is for sale
+                Err(<Error<T>>::MetaNotForSale)?;
+            }
+
+            log::info!("A meta is bought [ID {:?}]", meta_id);
+            Self::deposit_event(Event::MetaBought(buyer, meta_id));
+
+            Ok(())
+        }
+
+        #[pallet::weight(1000)]
+        pub fn create_meta_account(
+            origin: OriginFor<T>,
+            escrow: T::AccountId,
+            identity: Vec<u8>,
+            is_virtual: bool,
+            beneficiary: Option<Vec<u8>>,
+        ) -> DispatchResult {
+            let creator = ensure_signed(origin)?;
+
+            let meta_account = MetaAccount {
+                identity: identity.clone(),
+                creator: creator.clone(),
+                escrow: escrow.clone(),
+                beneficiary: beneficiary.clone(),
+                credit: 0,
+                is_virtual: is_virtual,
             };
 
+            let meta_account_id = T::Hashing::hash_of(&meta_account);
+
             // Performs this operation first as it may fail
-            let new_cnt = Self::virtual_account_count()
+            let new_cnt = Self::meta_account_count()
                 .checked_add(1)
-                .ok_or(<Error<T>>::VirtualAccountCountOverflow)?;
+                .ok_or(<Error<T>>::MetaAccountCountOverflow)?;
 
-            <VirtualAccounts<T>>::insert(virtual_account_id.clone(), virtual_account);
-            <VirtualAccountCount<T>>::put(new_cnt);
+            <MetaAccounts<T>>::insert(meta_account_id.clone(), meta_account);
+            <MetaAccountCount<T>>::put(new_cnt);
 
-            log::info!(
-                "A virtual account is created with ID: {:?}.",
-                &virtual_account_id
-            );
-            Self::deposit_event(Event::VirtualAccountCreated(virtual_account_id, owner));
+            log::info!("A meta account is created with ID: {:?}.", &meta_account_id);
+            Self::deposit_event(Event::MetaAccountCreated(meta_account_id));
 
             Ok(())
         }
     }
 
-    impl<T: Config> Pallet<T> {}
+    impl<T: Config> Pallet<T> {
+        // from https://stackoverflow.com/questions/56081117
+        pub fn u64_to_coin_option(input: u64) -> Option<CoinOf<T>> {
+            input.try_into().ok()
+        }
+
+        // from https://stackoverflow.com/questions/56081117
+        pub fn coin_to_u64(input: CoinOf<T>) -> Option<u64> {
+            TryInto::<u64>::try_into(input).ok()
+        }
+    }
 }

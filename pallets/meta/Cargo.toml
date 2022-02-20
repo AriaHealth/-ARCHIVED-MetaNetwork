@@ -13,6 +13,7 @@ version = "0.0.0-dev"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+argon2 = {version = "0.3"}
 codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
   "derive",
 ]}
