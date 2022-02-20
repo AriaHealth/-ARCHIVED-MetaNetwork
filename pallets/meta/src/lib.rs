@@ -11,7 +11,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::{
         sp_runtime::traits::Hash,
-        traits::{tokens::ExistenceRequirement, Currency},
+        traits::{tokens::ExistenceRequirement, Currency, ReservableCurrency},
         transactional,
     };
     use frame_system::pallet_prelude::*;
@@ -22,8 +22,23 @@ pub mod pallet {
     #[cfg(feature = "std")]
     use frame_support::serde::{Deserialize, Serialize};
 
-    type AccountOf<T> = <T as frame_system::Config>::AccountId;
+    /// Configure the pallet by specifying the parameters and types it depends on.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+        /// The currency handler
+        type Coin: ReservableCurrency<Self::AccountId>;
+
+        #[pallet::constant]
+        type MaxMetasOwned: Get<u32>;
+
+        #[pallet::constant]
+        type MaxMetasGranted: Get<u32>;
+    }
+
+    type AccountOf<T> = <T as frame_system::Config>::AccountId;
     type CoinOf<T> =
         <<T as Config>::Coin as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -34,6 +49,9 @@ pub mod pallet {
         pub metahash: Vec<u8>,        // meta SHA256 hash
         pub owner: T::Hash,           // meta account id
         pub price: Option<CoinOf<T>>, // price of the meta
+        pub metaformat: MetaFormat,
+        pub region: Region,
+        pub resource: Option<ResourceType>,
     }
 
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
@@ -54,25 +72,28 @@ pub mod pallet {
         Observation,
     }
 
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub enum MetaFormat {
+        FhirR4 = 1,
+        FhirSTU = 2,
+        FhirDSTU = 3,
+        Hl7 = 4,
+    }
+
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub enum Region {
+        Europe = 1,
+        MiddleEast = 2,
+        Africa = 3,
+    }
+
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
-
-    /// Configure the pallet by specifying the parameters and types it depends on.
-    #[pallet::config]
-    pub trait Config: frame_system::Config {
-        /// Because this pallet emits events, it depends on the runtime's definition of an event.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
-        /// The currency handler
-        type Coin: Currency<Self::AccountId>;
-
-        #[pallet::constant]
-        type MaxMetasOwned: Get<u32>;
-
-        #[pallet::constant]
-        type MaxMetasGranted: Get<u32>;
-    }
 
     // Errors.
     #[pallet::error]
@@ -136,6 +157,9 @@ pub mod pallet {
             metahash: Vec<u8>,
             owner: T::Hash,
             price: Option<CoinOf<T>>,
+            metaformat: MetaFormat,
+            region: Region,
+            resource: Option<ResourceType>,
         ) -> DispatchResult {
             let creator = ensure_signed(origin)?;
 
@@ -146,6 +170,9 @@ pub mod pallet {
                 metahash: metahash.clone(),
                 owner: owner.clone(),
                 price: price.clone(),
+                metaformat: metaformat.clone(),
+                region: region.clone(),
+                resource: resource.clone(),
             };
 
             let meta_id = T::Hashing::hash_of(&meta);
@@ -181,12 +208,11 @@ pub mod pallet {
 
             // TODO check if buyer is the real owner, if yes throw error. Validate using argon2
 
-            // Verify the buyer has the capacity to receive one more meta
-            let metas_granted = <MetasGranted<T>>::get(&buyer);
-            ensure!(
-                (metas_granted.len() as u32) < T::MaxMetasGranted::get(),
-                <Error<T>>::ExceedMaxMetasGranted
-            );
+            // TODO check if buyer is already buy the meta
+
+            // Grant the buyer meta if it has the capacity to receive one more meta
+            <MetasGranted<T>>::try_mutate(&buyer, |meta_vec| meta_vec.try_push(meta_id))
+                .map_err(|_| <Error<T>>::ExceedMaxMetasGranted)?;
 
             let escrow = owner.escrow.clone();
 
@@ -199,6 +225,7 @@ pub mod pallet {
 
                 // Transfer the amount from buyer to escrow
                 T::Coin::transfer(&buyer, &escrow, price, ExistenceRequirement::KeepAlive)?;
+                T::Coin::reserve(&escrow, price)?;
 
                 // Increase owner credit
                 if let Some(credit) = Self::coin_to_u64(price) {
